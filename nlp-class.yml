@@ -1,0 +1,26 @@
+name: nlp-class
+channels:
+  - defaults
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.9.*   # although 3.13 is out as of June 2024, trying recent versions makes the conda solver run for a very long time (and it might fail)
+  - pip
+  - ipykernel      # needed for Jupyter notebooks
+  - numpy=1.19.*
+  - pytorch=2.0.*
+  - scipy=1.5.*
+  - tqdm
+  # Formerly needed for homework hw-ofst:
+  # - thrax=1.3.8
+  # - ngram
+  - pip:
+      - more-itertools
+      - jaxtyping   # formerly used torchtyping
+      - kaggle
+      - rich
+      - python-dotenv
+      - openai
+      - tiktoken
+      - rank_bm25
+      

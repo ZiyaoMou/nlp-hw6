@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>INSTRUCTIONS</title>
+  <style>
+    html {
+      line-height: 1.5;
+      font-family: Georgia, serif;
+      font-size: 20px;
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 1em;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, 'Lucida Console', Consolas, monospace;
+      font-size: 85%;
+      margin: 0;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">INSTRUCTIONS</h1>
+</header>
+<h1 id="nlp-homework-6-structured-prediction">NLP Homework 6: Structured
+Prediction</h1>
+<h2 id="setup-and-files">Setup and Files</h2>
+<p>As in previous homeworks, you can activate the environment anytime
+using</p>
+<pre><code>conda activate nlp-class</code></pre>
+<p>We have provided you with starter code. If you choose to use this
+code, <strong>you should study it first</strong>, so that you understand
+it as if you had written it yourself. It will help a lot to experiment
+with it in a notebook, constructing small examples of the classes and
+calling their methods. (Also a good way to learn PyTorch!)</p>
+<p>After reading the reading handout, you probably want to study the
+files in this order. <strong>Boldface</strong> indicates parts of the
+code that you will write.</p>
+<ul>
+<li><code>integerize.py</code> – converts words and tags to ints that
+can be used to index PyTorch tensors (we’ve used this before)</li>
+<li><code>corpus.py</code> – manage access to a corpus (compare
+<code>Probs.py</code> on the lm homework)</li>
+<li><code>hmm.py</code> – HMM parameters, <strong>Viterbi
+algorithm</strong>, <strong>forward-backward algorithm</strong>,
+<strong>M-step</strong> training</li>
+<li><code>eval.py</code> – measure tagging accuracy</li>
+<li><code>test_ic.py</code> or <code>test_ic.ipynb</code> – uses the
+above to test Viterbi tagging, supervised learning, unsupervised
+learning on ice cream data</li>
+<li><code>test_en.py</code> or <code>test_en.ipynb</code> – uses the
+above to train on larger English data and evaluate on held-out
+cross-entropy and tagging accuracy</li>
+<li><code>tag.py</code> – your command-line system (<strong>you might
+add arguments for extra credit</strong>)</li>
+<li><code>crf.py</code> – CRF <strong>parameters</strong>,
+<strong>conditional log-probabilities</strong>,
+<strong>gradients</strong>, <strong>gradient step</strong> training</li>
+</ul>
+<p>You can experiment with these modules at the Python prompt. For
+example:</p>
+<pre><code>from pathlib import Path
+from corpus import *
+c = TaggedCorpus(Path(&quot;icsup&quot;))
+c.tagset
+list(c.tagset)
+list(c.vocab)
+iter = c.get_sentences()
+next(iter)
+next(iter)</code></pre>
+<h2 id="what-to-do-overall">What To Do Overall</h2>
+<p>The starter code has left sections for you to implement.</p>
+<p><strong>The easiest way to approach this assignment</strong> is to
+open up the <code>test_ic.ipynb</code> notebook and start running it.
+There will be pieces that raise <code>NotImplementedError</code> because
+you haven’t implemented them yet. So, keep implementing what you need
+until you can get through the HMM part of that notebook. You can check
+in the notebook that you are successfully reproducing computations from
+the <a href="http://cs.jhu.edu/~jason/465/hw-tag/hmm.xls">ice cream
+spreadsheet</a> that we covered in class.</p>
+<p>Then move on to the <code>test_en.ipynb</code> notebook. Finally, go
+back to both notebooks and do their CRF parts.</p>
+<p>As you work, also answer the questions in the assignment handout. You
+can do this by trying additional commands in the notebook.</p>
+<p>(If you don’t like Jupyter notebooks, you can also work directly at
+the Python prompt by copy-pasting short code blocks from
+<code>test_ic.py</code> and typing your own commands, or by running
+<code>test_ic.py</code> or your own scripts.)</p>
+<p>Your deliverables are <em>written answers to the questions</em>, plus
+your completed versions of the <em>Python scripts</em> above. Do not
+separately hand in notebooks or printouts of your interpreter
+session.</p>
+<h2 id="steps">Steps</h2>
+<p>Below, we’ll give you some hints on what you’ll need to do as you
+work through the notebooks.</p>
+<p><em>Note:</em> You should probably execute the following near the top
+of each notebook:</p>
+<p>%load_ext autoreload %autoreload 2</p>
+<p>That ensures that if you edit <code>hmm.py</code> (or any other
+module), the notebook will notice the update. Specifically, it will
+re-import symbols, such as <code>HiddenMarkovModel</code>. If you
+<em>already</em> executed <code>m = HiddenMarkovModel(...)</code>, then
+the <code>m</code> object doesn’t change – it’s still an element of the
+old <code>HiddenMarkovModel</code> class. But if you re-execute that
+line after editing the class, it will now call the constructor of the
+updated <code>HiddenMarkovModel</code> class</p>
+<h3 id="step-0-create-an-hmm">Step 0: Create an HMM</h3>
+<p>You can hard-code the initial spreadsheet parameters into your HMM,
+something like this:</p>
+<pre><code>hmm = HiddenMarkovModel(...)
+hmm.A = torch.tensor(...)   # transition matrix
+hmm.B = torch.tensor(...)   # emission matrix</code></pre>
+<p>This is illustrated in <code>test_ic</code>.</p>
+<p>If you want to experiment with the parameters later as we did in
+class, you can set individual elements of a <code>Tensor</code> the way
+you’d expect:</p>
+<pre><code>my_tensor[3, 5] = 8.0</code></pre>
+<p>Think about how to get those indices, though. (Where in
+<code>hmm.B</code> is the parameter for emitting <code>3</code> while in
+state <code>H</code>?) You may want to use the corpus’s
+<code>integerize_tag</code> and <code>integerize_word</code> functions
+or access the integerizers directly.</p>
+<h3 id="step-1-viterbi-tagging">Step 1: Viterbi Tagging</h3>
+<p>Implement the <code>viterbi_tagging()</code> method in
+<code>hmm.py</code> as described in the handout. Structurally, this
+method is very similar to the forward algorithm. It has a handful of
+differences, though:</p>
+<ul>
+<li>You’re taking the max instead of the sum over possible predecessor
+tags.</li>
+<li>You must track backpointers and reconstruct the best path in a
+backward pass.</li>
+<li>This function returns a sentence tagged with the highest-probability
+tag sequence, instead of returning a (log-)probability.</li>
+</ul>
+<p>Remember to handle the BOS and EOS tags appropriately. Each will be
+involved in 1 transition but 0 emissions.</p>
+<p>You may benefit from <a
+href="https://pytorch.org/tutorials/beginner/nlp/pytorch_tutorial.html">PyTorch’s
+tutorial</a> and from carefully reading the reading handout and the
+commented starter code.</p>
+<p>At this point, you’re just going to be running on the small ice cream
+example, so you should not yet have to use the tricks in the “Numerical
+Issues” section of the reading handout. The spreadsheet didn’t have to
+use them either.</p>
+<p>Run your implementation on <code>icraw</code> (the untagged diary
+data from the spreadsheet), using the hard-coded parameters from above.
+To do this, look at how <code>test_ic</code> calls
+<code>viterbi_tagging</code>.</p>
+<p>Check your results against the <a
+href="http://cs.jhu.edu/~jason/465/hw-tag/hmm-viterbi.xls">Viterbi
+version of the spreadsheet</a>. (<em>Note:</em> Backpointers are hard to
+implement on spreadsheets, so the spreadsheet uses an alternative
+technique to get the Viterbi tagging, namely to symmetrically compute
+<span class="math inline"><em>α̂</em></span> and <span
+class="math inline"><em>β̂</em></span> values at each state; these are
+called <span class="math inline"><em>μ</em></span> and <span
+class="math inline"><em>ν</em></span> on the spreadsheet. Their product
+is the probability of the <em>best</em> path through each state, just as
+the product <span class="math inline"><em>α</em> ⋅ <em>β</em></span> in
+the forward algorithm is the total probability of all <em>paths</em>
+through each state. That’s just a change of semiring from + to max.)</p>
+<p>Do your <span class="math inline"><em>α̂</em></span> values match the
+spreadsheet, for each word, if you print them out along the way? When
+you follow the backpointers, do you get either
+<code>HHHHHHHHHHHHHCCCCCCCCCCCCCCHHHHHH</code> or
+<code>HHHHHHHHHHHHHCCCCCCCCCCCCCHHHHHHH</code> (these paths tie, with
+the only difference being on day 27)? (These are rhetorical questions.
+The only questions you need to turn in answers to are in the
+handout.)</p>
+<p>Try out automatic evaluation: compare your Viterbi tagging to the
+correct answer in <code>icdev</code>, using an appropriate method from
+<code>eval.py</code>. Again, <code>test_ic</code> will guide you through
+this.</p>
+<h3 id="step-2-supervised-training">Step 2: Supervised training</h3>
+<p>The next part of <code>test_ic</code> asks you to start from random
+parameters and do supervised training on the <code>icsup</code> dataset,
+which is a more realistic way to get to the initial parameters on the
+spreadsheet.</p>
+<p>So, you will have to implement at least part of the EM algorithm.
+However, because you are working on supervised data, you don’t actually
+have to impute the tags at the E step, so you can replace
+<code>E_step()</code> for now with a simpler version that just runs
+through the sentence and grabs the counts. The <code>M_step()</code>
+should be the real thing, but we’ve written part of it for you to show
+you the way.</p>
+<h3 id="step-3-the-forward-algorithm">Step 3: The forward algorithm</h3>
+<p>To compute the log-probability of <code>icraw</code> under these
+initial parameters (log of formula (1) on your reading handout), you’ll
+need to implement <code>forward_pass()</code>, which sums over paths
+using the forward algorithm, instead of maximizing over paths. This
+should match the results on <a
+href="http://cs.jhu.edu/~jason/465/hw-tag/hmm.xls">the original
+spreadsheet</a>, and you can compare the intermediate results to catch
+any bugs.</p>
+<h3 id="step-4-full-e-step">Step 4: Full E step</h3>
+<p>You now want to run <code>train()</code> on the <em>unsupervised</em>
+<code>icraw</code> corpus. In general, this method locally maximizes the
+(log-)likelihood of the parameters, using the EM algorithm. The weights
+are updated after each epoch (iteration across the dataset). The
+<code>train()</code> method decides when to stop (see its
+documentation).</p>
+<p>For this, you’ll need to fully implement <code>E_step()</code>. You
+can call the forward algorithm that you just implemented. You’ll also
+have to add the backward algorithm and make it add to the expected
+counts stored in the <code>HiddenMarkovModel</code> instance.</p>
+<p>In particular, you’ll need to implement the backward algorithm in
+<code>backward_pass()</code>, which also accumulates expected
+counts.</p>
+<p>You can test your <code>E_step()</code> directly in the notebook or
+the debugger. Your implementation should get the same results as before
+on <code>icsup</code> (maybe a little more slowly), because it restricts
+to observed tags when available, but now it should also work on
+<code>icraw</code>. In the latter case, you can check your backward
+probabilities and expected counts against the spreadsheet.</p>
+<h3 id="step-5-em-training">Step 5: EM training</h3>
+<p>Once your E step is working, <code>train()</code> should exactly
+mimic the iterations on the spreadsheet. Do you eventually get to the
+same parameters as EM does?</p>
+<h3 id="step-6-make-it-fast">Step 6: Make it fast</h3>
+<p>Now let’s move on to real data! Try out the workflow in
+<code>test_en.py</code> (or its notebook version
+<code>test_en.ipynb</code>).</p>
+<p>When training on a supervised corpus <code>ensup</code>, our own
+implementation ran at roughly 25 training sentences per second on a good
+2019 laptop. (This is for both supervised and unsupervised sentences,
+although you could get a speedup on supervised sentences by handling
+them specially as you did earlier.)</p>
+<p>This is reported as iterations per secion (<code>it/s</code>) on the
+<code>tqdm</code> progress bar during training. Note that there are also
+progress bars for periodic evaluation on the smaller dev corpus.</p>
+<p>If you’re notably slower than this, you’ll want to speed it up –
+probably by making less use of loops and more use of fast tensor
+operations.</p>
+<p><em>Note:</em> Matrix multiplication is available in PyTorch (and
+numpy) using the <code>matmul</code> function. In the simplest case, it
+can be invoked with the <a
+href="https://www.python.org/dev/peps/pep-0465/">infix operator</a>
+<code>C = A @ B</code>, which works the way you’d expect from your
+linear algebra class. A different syntax, <code>D = A * B</code>,
+performs <em>element-wise</em> multiplication of two matrices whose
+entire shapes match. (It also works if they’re “<a
+href="https://pytorch.org/docs/stable/notes/broadcasting.html">broadcastable</a>,”
+like if <code>A</code> is 1x5 and <code>B</code> is 3x5. See also <a
+href="https://numpy.org/doc/stable/user/basics.broadcasting.html">here</a>.)</p>
+<h3 id="step-7-make-it-stable">Step 7: Make it stable</h3>
+<p>You’ll probably come across numerical stability problems from working
+with products of small probabilities. Fix them using one of the methods
+in the “Numerical Issues” section of the reading handout.</p>
+<h3 id="step-8-check-the-command-line-interface">Step 8: Check the
+command-line interface</h3>
+<p>We’ve provided a script <code>tag.py</code>. Run it with the
+<code>--help</code> option to see documentation, or look at the
+code.</p>
+<p>It can be run (for example) like this:</p>
+<pre><code>$ python3 tag.py &lt;input_file&gt; --model &lt;model_file&gt; --train &lt;training_files&gt;</code></pre>
+<p>This should run an HMM on the <code>input_file</code>. Where does the
+HMM come from? It is loaded from the <code>model_file</code> and then
+trained further on the <code>training_files</code> until the error rate
+metric is no longer improving on the <code>input_file</code>. The
+improved model is saved back to the <code>model_file</code> at the
+end.</p>
+<p>If the <code>model_file</code> doesn’t exist yet or isn’t provided,
+then the script will create a new randomly initialized HMM. If no
+<code>training_files</code> are provided, then the model will not be
+trained further.</p>
+<p>Thus, our autograder will be able to replicate roughly the
+<code>test_en.py</code> workflow like this:</p>
+<pre><code>$ python3 tag.py endev --model example.pkl --train ensup        # supervised training
+$ python3 tag.py endev --model example.pkl --train ensup enraw  # semi-supervised training</code></pre>
+<p>and it then will be able to evaluate the error rate of your saved
+model on a test file like this:</p>
+<pre><code>$ python3 tag.py ensup --model example.pkl --loss viterbi_error  # error rate on TRAINING data
+$ python3 tag.py endev --model example.pkl --loss viterbi_error  # error rate on DEVELOPMENT data</code></pre>
+<p>If the test file is untagged, then it has no way to evaluate error
+rate, but it can still output a tagging (and evaluate cross-entropy on
+the words). That’s how you would apply your tagger to actual new
+input.</p>
+<pre><code>$ python3 tag.py enraw --model example.pkl</code></pre>
+<p>Of course, to get a fair score, the autograder will use blind test
+data. The <code>endev</code> sentences were already seen during
+development (used for purposes such as hyperparameter tuning and early
+stopping).</p>
+<p><code>tag.py</code> should also output the Viterbi taggings of all
+sentences in the <code>eval_file</code> to a text file, in the usual
+format. For example, if the <code>eval_file</code> is called
+<code>endev</code>, then it should create a file called
+<code>endev_output</code> with lines like</p>
+<pre><code>Papa/N ate/V the/D caviar/N with/P a/D spoon/N ./.</code></pre>
+<p><code>tag.py</code> is allowed to print additional text to the
+standard error stream, e.g., by using Python’s <code>logging</code>
+library. This can report other information that you may want to see,
+including the tags your program picks, its perplexity and accuracy as it
+goes along, various probabilities, etc. Anything printed to standard
+error will be ignored by the autograder; use it however you’d like.</p>
+<p>There are other command-line parameters, such as <span
+class="math inline"><em>λ</em></span> for add-<span
+class="math inline"><em>λ</em></span> smoothing You’re entirely welcome
+(and encouraged) to add other command line parameters. hyperparameter
+searching much easier; you can write a script that loops over different
+values to automate your search. You may also be able to parallelize this
+search. Make sure that your submitted code has default values set how
+you want them, so that we run the best version. (Don’t make the
+autograder run your hyperparameter search.)</p>
+<h3 id="step-9-posterior-decoding-extra-credit">Step 9: Posterior
+Decoding (<strong>extra credit</strong>)</h3>
+<p>Try implementing posterior decoding as described in the reading
+handout. Since you’ve already implemented the forward-backward
+algorithm, this shouldn’t be too much extra work. But you will need to
+add a method for this (or add options to existing methods). You should
+also extend <code>tag.py</code> with an option that lets you choose
+posterior decoding rather than Viterbi decoding.</p>
+<p>The posterior marginal probabilities for the <code>icraw</code> data
+are shown on the spreadsheet. You can use these to check your code.</p>
+<p>On the English data, how much better does posterior decoding do, in
+terms of accuracy? Do you notice anything odd about the outputs?</p>
+<h3 id="step-10-crf">Step 10: CRF</h3>
+<p>You can now go back to the ice cream notebook (<code>test_ic</code>)
+and complete the the <code>ConditionalRandomField</code> class in
+<code>crf.py</code>.</p>
+<p>Instead of re-estimating the parameters only after each epoch (M
+step), the <code>train</code> method has been overridden to make an SGD
+update after each minibatch. This outer loop has been given to you, but
+make sure to study it.</p>
+<p>You’ll mostly focus on setting and adjusting the parameters via SGD
+updates. You shouldn’t need any new dynamic programming – you can just
+inherit those methods from your <code>HiddenMarkovModel</code>
+class.</p>
+<p>Only the model is changing. So the supporting code like
+<code>corpus.py</code> and <code>eval.py</code> should not have to
+change.</p>
+<p>Once you’ve been able to finish <code>test_ic</code> successfully, go
+back to <code>test_en</code>. Also make sure that <code>tag.py</code>
+works properly, using the <code>--crf</code> option.</p>
+<h2 id="what-to-submit-this-section-subject-to-change">What to submit
+[this section subject to change]</h2>
+<p>You should submit the following files under <strong>Assignment 6 -
+Programming</strong>:</p>
+<ul>
+<li>Code you changed
+<ul>
+<li><code>hmm.py</code></li>
+<li><code>crf.py</code></li>
+</ul></li>
+<li>Supporting code you probably didn’t change
+<ul>
+<li><code>tag.py</code></li>
+<li><code>eval.py</code></li>
+<li><code>corpus.py</code></li>
+<li><code>integerize.py</code></li>
+</ul></li>
+<li>Trained models
+<ul>
+<li><code>ensup_hmm.pkl</code> (english supervised HMM)</li>
+<li><code>entrain_hmm.pkl</code> (english semi-supervised HMM)</li>
+<li><code>entrain_hmm_awesome.pkl</code> (english semi-supervised HMM
+with extra credit improvements)</li>
+<li><code>ensup_crf.pkl</code> (english supervised CRF)</li>
+<li><code>entrain_crf.pkl</code> (english semi-supervised CRF)</li>
+</ul></li>
+</ul>
+<p>Try your code out early as it can take a bit of time to run the
+autograder. Please let us know if anything is broken in the
+autograder.</p>
+<p><em>Additional Note:</em> Please don’t submit the output files that
+show up in the autograder’s feedback message. Rather, these will be
+produced by running your code! If you do submit them, the autograder
+will not grade your assignment.</p>
+</body>
+</html>
