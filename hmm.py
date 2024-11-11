@@ -311,8 +311,8 @@ class HiddenMarkovModel:
                 word = isent[m][0]
                 tag = isent[m][1]
                 if tag is not None:
-                    log_sum_exp = torch.logsumexp(alpha[m-1] + torch.log(self.A[:, t]) + torch.log(self.B[t, word]), dim=0)
-                    alpha[m][t] = log_sum_exp
+                    log_sum_exp = torch.logsumexp(alpha[m-1] + torch.log(self.A[:, tag]) + torch.log(self.B[tag, word]), dim=0)
+                    alpha[m][tag] = log_sum_exp
                 else:
                     alpha[m] = torch.logsumexp(alpha[m-1] + torch.log(self.A) + torch.log(self.B[:, word]), dim=0)
 
@@ -333,19 +333,18 @@ class HiddenMarkovModel:
         beta = [torch.full((self.k,), -float('inf')) for _ in range(n+1)]
         beta[-1] = self.eye[self.eos_t]  # Set beta for EOS_TAG to one-hot
         # Backward pass: Start from end and move towards the beginning
-        print(isent)
         for j in range(n, 0, -1):
             word = isent[j][0]
             tag = isent[j][1]
             for t in range(self.k):
                 if tag is None:  # Unsupervised case
-                    beta[j - 1][t] = torch.logsumexp(
+                    beta[j - 1] = torch.logsumexp(
                         beta[j] + torch.log(self.A[t]) + torch.log(self.B[:, word]),
                         dim=0 
                     )
                 else:  # Supervised case
-                    beta[j - 1][t] = torch.logsumexp(
-                        beta[j] + torch.log(self.A[:, t]) + torch.log(self.B[t, word]),
+                    beta[j - 1][tag] = torch.logsumexp(
+                        beta[j] + torch.log(self.A[:, tag]) + torch.log(self.B[tag, word]),
                         dim=0
                     )          
         # Compute log Z for backward pass by summing paths from BOS_TAG
