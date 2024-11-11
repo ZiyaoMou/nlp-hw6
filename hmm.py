@@ -337,7 +337,7 @@ class HiddenMarkovModel:
             tag = isent[j][1]
             if tag is None:  # Unsupervised case
                 beta[j - 1] = torch.logsumexp(
-                    beta[j] + torch.log(self.A[:, tag]) + torch.log(self.B[:, word]),
+                    beta[j].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0),
                     dim=0 
                 )
             else:  # Supervised case
