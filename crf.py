@@ -65,8 +65,14 @@ class ConditionalRandomField(HiddenMarkovModel):
         # For a unigram model, self.WA should just have a single row:
         # that model has fewer parameters.
 
-        raise NotImplementedError   # you fill this in!
-        self.updateAB()   # compute potential matrices
+        self.WA = torch.rand((1 if self.unigram else self.k, self.k)) * (-1)
+        self.WA[:, self.bos_t] = -inf  # Ensure that transitions to BOS_TAG are not possible
+        
+        # Initialize the emission weight matrix WB
+        self.WB = torch.rand(self.k, self.V) * (-1)  # d represents the vocabulary size, excluding EOS and BOS
+        self.WB[self.eos_t, :] = 0  # EOS_TAG does not emit any words
+        self.WB[self.bos_t, :] = 0  # BOS_TAG is also excluded similarly
+        self.updateAB()  # Update A and B potential matrices based on initialized WA and WB
 
     def updateAB(self) -> None:
         """Set the transition and emission matrices self.A and self.B, 
@@ -78,8 +84,19 @@ class ConditionalRandomField(HiddenMarkovModel):
         # so that the forward-backward code will still work.
         # See init_params() in the parent class for discussion of this point.
         
-        raise NotImplementedError   # you fill this in!
+        # Use softmax to convert weights to probability distributions
+        if self.unigram:
+            # For a unigram model, WA is a row vector, so A is a k x k matrix created by repeating the row
+            self.A = torch.exp(self.WA).repeat(self.k, 1)
+        else:
+            self.A = torch.exp(self.WA)
+        
+        # Update the emission matrix B
+        self.B = torch.exp(self.WB)
+        self.B[self.eos_t, :] = 0
+        self.B[self.bos_t, :] = 0
 
+    
     @override
     def train(self,
               corpus: TaggedCorpus,
@@ -194,7 +211,48 @@ class ConditionalRandomField(HiddenMarkovModel):
         # in order to compute the normalizing constant for this sentence.
         desup_isent = self._integerize_sentence(sentence.desupervise(), corpus)
 
-        raise NotImplementedError   # you fill this in!
+                # Use the forward algorithm to calculate log p(tags, words) and log p(words)
+        log_p_tags_words = self.log_forward(isent)
+        log_p_words = self.log_forward(desup_isent)
+        
+        # Return conditional log probability
+        return log_p_tags_words - log_p_words
+
+    @typechecked
+    def log_forward(self, sent) -> TorchScalar:
+        """Computes log Z, the log-probability of observing the given sentence 
+        under the model's parameters, using the forward algorithm.
+        """
+        n = len(sent) - 2  # number of words, excluding BOS and EOS
+
+        # Initialize alpha to be -inf for all tags, except the BOS tag
+        alpha = torch.full((len(sent), self.k), -float('inf'))
+        alpha[0][self.bos_t] = 0  # Start with BOS tag having log-prob of 0
+
+        # Forward algorithm over each word in the sentence
+        for j in range(1, n + 1):
+            word = sent[j][0]
+            tag = sent[j][1]
+
+            if tag is None:  # Unsupervised, consider all possible tags
+                alpha[j] = torch.logsumexp(
+                    alpha[j - 1].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0) + torch.log(self.B[:, word]).unsqueeze(0),
+                    dim=0
+                )
+            else:  # Supervised, update only the observed tag
+                alpha[j][tag] = torch.logsumexp(
+                    alpha[j - 1] + torch.log(self.A[:, tag]) + torch.log(self.B[tag, word]),
+                    dim=0
+                )
+
+        # Compute for EOS tag
+        alpha[n + 1][self.eos_t] = torch.logsumexp(
+            alpha[n] + torch.log(self.A[:, self.eos_t]), dim=0
+        )
+
+        # Return the final log-probability
+        Z = alpha[n + 1][self.eos_t]
+        return Z
 
     def accumulate_logprob_gradient(self, sentence: Sentence, corpus: TaggedCorpus) -> None:
         """Add the gradient of self.logprob(sentence, corpus) into a total minibatch
@@ -212,8 +270,16 @@ class ConditionalRandomField(HiddenMarkovModel):
         isent_sup   = self._integerize_sentence(sentence, corpus)
         isent_desup = self._integerize_sentence(sentence.desupervise(), corpus)
 
-        # Hint: use the mult argument to E_step().
-        raise NotImplementedError   # you fill this in!
+        """Accumulate the gradient of log p(tags | words) into the total minibatch gradient."""
+        # Supervised sentence
+        isent_sup = self._integerize_sentence(sentence, corpus)
+        # Desupervised sentence (all possible taggings)
+        isent_desup = self._integerize_sentence(sentence.desupervise(), corpus)
+        
+        # Use E_step to calculate observed counts (with mult=1) and expected counts (with mult=-1)
+        self.E_step(isent_sup, mult=1)
+        self.E_step(isent_desup, mult=-1)
+
         
     def _zero_grad(self):
         """Reset the gradient accumulator to zero."""
@@ -228,8 +294,14 @@ class ConditionalRandomField(HiddenMarkovModel):
         # Warning: Careful about how to handle the unigram case, where self.WA
         # is only a vector of tag unigram potentials (even though self.A_counts
         # is a still a matrix of tag bigram potentials).
-        
-        raise NotImplementedError   # you fill this in!
+        # Update WA
+        if self.unigram:
+            self.WA += lr * torch.sum(self.A_counts, dim=0)  # Sum rows for unigram case
+        else:
+            self.WA += lr * self.A_counts  # Use A_counts directly for bigram case
+
+        # Update WB
+        self.WB += lr * self.B_counts
         
     def reg_gradient_step(self, lr: float, reg: float, frac: float):
         """Update the parameters using the gradient of our regularizer.
@@ -246,5 +318,7 @@ class ConditionalRandomField(HiddenMarkovModel):
         # because some of the weights are infinite and inf - inf = nan. 
         # Instead, you want something like w *= 0.9.
 
-        raise NotImplementedError   # you fill this in!
+        # Pull parameters closer to zero to prevent overfitting, with scaling factor (1 - lr * reg * frac)
+        self.WA *= (1 - lr * reg * frac)
+        self.WB *= (1 - lr * reg * frac)
     
