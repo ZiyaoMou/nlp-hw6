@@ -37,34 +37,34 @@ os.system("cat icsup")   # call the shell to look at the file directly
 log.info(icsup)          # print the TaggedCorpus python object we constructed from it
 
 # Make an HMM.
-log.info("*** Hidden Markov Model (HMM) test\n")
-hmm = HiddenMarkovModel(icsup.tagset, icsup.vocab)
-# Change the transition/emission initial probabilities to match the ice cream spreadsheet,
-# and test your implementation of the Viterbi algorithm.  Note that the spreadsheet 
-# uses transposed versions of these matrices.
-hmm.B = tensor([[0.7000, 0.2000, 0.1000],    # emission probabilities
-                [0.1000, 0.2000, 0.7000],
-                [0.0000, 0.0000, 0.0000],
-                [0.0000, 0.0000, 0.0000]])
-hmm.A = tensor([[0.8000, 0.1000, 0.1000, 0.0000],   # transition probabilities
-                [0.1000, 0.8000, 0.1000, 0.0000],
-                [0.0000, 0.0000, 0.0000, 0.0000],
-                [0.5000, 0.5000, 0.0000, 0.0000]])
-log.info("*** Current A, B matrices (using initalizations from the ice cream spreadsheet)")
-hmm.printAB()
+# log.info("*** Hidden Markov Model (HMM) test\n")
+# hmm = HiddenMarkovModel(icsup.tagset, icsup.vocab)
+# # Change the transition/emission initial probabilities to match the ice cream spreadsheet,
+# # and test your implementation of the Viterbi algorithm.  Note that the spreadsheet 
+# # uses transposed versions of these matrices.
+# hmm.B = tensor([[0.7000, 0.2000, 0.1000],    # emission probabilities
+#                 [0.1000, 0.2000, 0.7000],
+#                 [0.0000, 0.0000, 0.0000],
+#                 [0.0000, 0.0000, 0.0000]])
+# hmm.A = tensor([[0.8000, 0.1000, 0.1000, 0.0000],   # transition probabilities
+#                 [0.1000, 0.8000, 0.1000, 0.0000],
+#                 [0.0000, 0.0000, 0.0000, 0.0000],
+#                 [0.5000, 0.5000, 0.0000, 0.0000]])
+# log.info("*** Current A, B matrices (using initalizations from the ice cream spreadsheet)")
+# hmm.printAB()
 
-# Try it out on the raw data from the spreadsheet, available in `icraw``.
-log.info("*** Viterbi results on icraw with hard coded parameters")
-icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
-write_tagging(hmm, icraw, Path("icraw_hmm.output"))  # calls hmm.viterbi_tagging on each sentence
-os.system("cat icraw_hmm.output")   # print the file we just created, and remove it
+# # Try it out on the raw data from the spreadsheet, available in `icraw``.
+# log.info("*** Viterbi results on icraw with hard coded parameters")
+# icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
+# write_tagging(hmm, icraw, Path("icraw_hmm.output"))  # calls hmm.viterbi_tagging on each sentence
+# os.system("cat icraw_hmm.output")   # print the file we just created, and remove it
 
-# Did the parameters that we guessed above get the "correct" answer, 
-# as revealed in `icdev`?
+# # Did the parameters that we guessed above get the "correct" answer, 
+# # as revealed in `icdev`?
 icdev = TaggedCorpus(Path("icdev"), tagset=icsup.tagset, vocab=icsup.vocab)
-log.info(f"*** Compare to icdev corpus:\n{icdev}")
-from eval import viterbi_error_rate
-viterbi_error_rate(hmm, icdev, show_cross_entropy=False)
+# log.info(f"*** Compare to icdev corpus:\n{icdev}")
+# from eval import viterbi_error_rate
+# viterbi_error_rate(hmm, icdev, show_cross_entropy=False)
 
 # Now let's try your training code, running it on supervised data.
 # To test this, we'll restart from a random initialization.
@@ -77,9 +77,11 @@ hmm.printAB()
 log.info("*** Supervised training on icsup")
 cross_entropy_loss = lambda model: model_cross_entropy(model, icsup)
 hmm.train(corpus=icsup, loss=cross_entropy_loss, tolerance=0.0001)
-log.info("*** A, B matrices after training on icsup (should "
-         "match initial params on spreadsheet [transposed])")
-hmm.printAB()
+# log.info("*** A, B matrices after training on icsup (should "
+#          "match initial params on spreadsheet [transposed])")
+# hmm.printAB()
+from eval import viterbi_error_rate
+viterbi_error_rate(hmm, icdev, show_cross_entropy=False)
 
 # Now that we've reached the spreadsheet's starting guess, let's again tag
 # the spreadsheet "sentence" (that is, the sequence of ice creams) using the
@@ -112,27 +114,27 @@ hmm.printAB()
 # the initialized A and B matrices now hold non-negative potentials,
 # rather than probabilities that sum to 1.
 
-log.info("*** Conditional Random Field (CRF) test\n")
-crf = ConditionalRandomField(icsup.tagset, icsup.vocab)
-log.info("*** Current A, B matrices (potentials from small random parameters)")
-crf.printAB()
+# log.info("*** Conditional Random Field (CRF) test\n")
+# crf = ConditionalRandomField(icsup.tagset, icsup.vocab)
+# log.info("*** Current A, B matrices (potentials from small random parameters)")
+# crf.printAB()
 
-# Now let's try your training code, running it on supervised data. To test this,
-# we'll restart from a random initialization. 
-# 
-# Note that the logger reports the CRF's *conditional* cross-entropy, 
-# log p(tags | words) / n.  This is much lower than the HMM's *joint* 
-# cross-entropy log p(tags, words) / n, but that doesn't mean the CRF
-# is worse at tagging.  The CRF is just predicting less information.
-log.info("*** Supervised training on icsup")
-cross_entropy_loss = lambda model: model_cross_entropy(model, icsup)
-crf.train(corpus=icsup, loss=cross_entropy_loss, lr=0.1, tolerance=0.0001)
-log.info("*** A, B matrices after training on icsup")
-crf.printAB()
+# # Now let's try your training code, running it on supervised data. To test this,
+# # we'll restart from a random initialization. 
+# # 
+# # Note that the logger reports the CRF's *conditional* cross-entropy, 
+# # log p(tags | words) / n.  This is much lower than the HMM's *joint* 
+# # cross-entropy log p(tags, words) / n, but that doesn't mean the CRF
+# # is worse at tagging.  The CRF is just predicting less information.
+# log.info("*** Supervised training on icsup")
+# cross_entropy_loss = lambda model: model_cross_entropy(model, icsup)
+# crf.train(corpus=icsup, loss=cross_entropy_loss, lr=0.1, tolerance=0.0001)
+# log.info("*** A, B matrices after training on icsup")
+# crf.printAB()
 
-# Let's again tag the spreadsheet "sentence" (that is, the sequence of ice creams) 
-# using the Viterbi algorithm (this may not match the HMM).
-log.info("*** Viterbi results on icraw with trained parameters")
-icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
-write_tagging(hmm, icraw, Path("icraw_crf.output"))  # calls hmm.viterbi_tagging on each sentence
-os.system("cat icraw_crf.output")   # print the file we just created, and remove it
+# # Let's again tag the spreadsheet "sentence" (that is, the sequence of ice creams) 
+# # using the Viterbi algorithm (this may not match the HMM).
+# log.info("*** Viterbi results on icraw with trained parameters")
+# icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
+# write_tagging(hmm, icraw, Path("icraw_crf.output"))  # calls hmm.viterbi_tagging on each sentence
+# os.system("cat icraw_crf.output")   # print the file we just created, and remove it

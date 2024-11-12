@@ -51,7 +51,6 @@ class ConditionalRandomField(HiddenMarkovModel):
         """Construct an CRF with initially random parameters, with the
         given tagset, vocabulary, and lexical features.  See the super()
         method for discussion."""
-
         super().__init__(tagset, vocab, unigram)
 
     @override
@@ -65,13 +64,13 @@ class ConditionalRandomField(HiddenMarkovModel):
         # For a unigram model, self.WA should just have a single row:
         # that model has fewer parameters.
 
-        self.WA = torch.rand((1 if self.unigram else self.k, self.k)) * (-1)
+        self.WA = torch.rand((1 if self.unigram else self.k, self.k)) * -10
         self.WA[:, self.bos_t] = -inf  # Ensure that transitions to BOS_TAG are not possible
         
         # Initialize the emission weight matrix WB
-        self.WB = torch.rand(self.k, self.V) * (-1)  # d represents the vocabulary size, excluding EOS and BOS
-        self.WB[self.eos_t, :] = 0  # EOS_TAG does not emit any words
-        self.WB[self.bos_t, :] = 0  # BOS_TAG is also excluded similarly
+        self.WB = torch.rand(self.k, self.V) * -10  # d represents the vocabulary size, excluding EOS and BOS
+        self.WB[self.eos_t, :] = -inf  # EOS_TAG does not emit any words
+        self.WB[self.bos_t, :] = -inf  # BOS_TAG is also excluded similarly
         self.updateAB()  # Update A and B potential matrices based on initialized WA and WB
 
     def updateAB(self) -> None:
@@ -232,27 +231,38 @@ class ConditionalRandomField(HiddenMarkovModel):
         # Forward algorithm over each word in the sentence
         for j in range(1, n + 1):
             word = sent[j][0]
-            tag = sent[j][1]
+            prev_tag = sent[j - 1][1]
+            current_tag = sent[j][1]
 
-            if tag is None:  # Unsupervised, consider all possible tags
+            # Compute alpha[j] based on tagging status of j and j-1
+            if current_tag is None:
+                # j is not tagged, sum over all possible tags for j
                 alpha[j] = torch.logsumexp(
-                    alpha[j - 1].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0) + torch.log(self.B[:, word]).unsqueeze(0),
-                    dim=0
+                    alpha[j - 1].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0), dim=0
                 )
-            else:  # Supervised, update only the observed tag
-                alpha[j][tag] = torch.logsumexp(
-                    alpha[j - 1] + torch.log(self.A[:, tag]) + torch.log(self.B[tag, word]),
-                    dim=0
+            elif prev_tag is None:
+                # j is tagged, but j-1 is not tagged
+                alpha[j][current_tag] = torch.logsumexp(
+                    alpha[j - 1] + torch.log(self.A[:, current_tag]) + torch.log(self.B[current_tag, word]), dim=0
                 )
+            else:
+                # Both j and j-1 are tagged
+                alpha[j][current_tag] = (
+                    alpha[j - 1][prev_tag]
+                    + torch.log(self.A[prev_tag, current_tag])
+                    + torch.log(self.B[current_tag, word])
+                )
+        # Final step for EOS tag (j = n + 1), omit B matrix
+        if sent[n][1] is None:  # n is not tagged
+            alpha[n + 1][self.eos_t] = torch.logsumexp(alpha[n] + torch.log(self.A[:, self.eos_t]), dim=0)
+        else:  # n is tagged
+            alpha[n + 1][self.eos_t] = alpha[n][sent[n][1]] + torch.log(self.A[sent[n][1], self.eos_t])
 
-        # Compute for EOS tag
-        alpha[n + 1][self.eos_t] = torch.logsumexp(
-            alpha[n] + torch.log(self.A[:, self.eos_t]), dim=0
-        )
-
-        # Return the final log-probability
-        Z = alpha[n + 1][self.eos_t]
-        return Z
+        # Calculate log Z, the log-probability of observing the given sentence
+        log_Z = alpha[n + 1][self.eos_t]
+        self.alpha = alpha  # Save alpha for backward pass
+        self.log_Z = log_Z  # Save log Z
+        return log_Z
 
     def accumulate_logprob_gradient(self, sentence: Sentence, corpus: TaggedCorpus) -> None:
         """Add the gradient of self.logprob(sentence, corpus) into a total minibatch

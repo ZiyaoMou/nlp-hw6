@@ -9,6 +9,7 @@ import logging
 from math import inf, log, exp, prod
 from pathlib import Path
 from typing import Callable, List, Optional, cast
+from sympy import N
 from typeguard import typechecked
 
 import torch
@@ -164,13 +165,27 @@ class HiddenMarkovModel:
         # Don't forget to respect the settings self.unigram and λ.
         # See the init_params() method for a discussion of self.A in the
         # unigram case.
-        
+        # print(self.A_counts)
+        # print(self.B_counts)
         self.A_counts += λ
-        if self.unigram:
-            self.A = self.A_counts.sum(dim=0, keepdim=True) / self.A_counts.sum()
-            self.A = self.A.repeat(self.k, 1)
+        # print(self.A_counts)
+        if not self.unigram:
+            self.A = self.A_counts / self.B_counts.sum(dim=1, keepdim=True)
+            self.A[self.bos_t] = self.A_counts[self.bos_t] / self.A_counts[self.bos_t].sum()
+            self.A[:, self.bos_t] = 0
+            self.A[self.eos_t] = 0
+            # 1 - sum of A in other columns
+            self.A[:, self.eos_t] = 0
+            self.A[:, self.eos_t] = torch.clamp(1 - self.A.sum(dim=1), min=0)
+            self.A[self.eos_t] = 0
+            self.A[self.bos_t, self.eos_t] = 0
         else:
-            self.A = self.A_counts / self.A_counts.sum(dim=1, keepdim=True)
+            self.A_counts[[self.bos_t, self.eos_t]] = 0
+            self.A = self.A_counts.sum(dim=0) / (self.A_counts.sum() + 1)
+            self.A[self.bos_t] = 1 / (self.A_counts.sum() + 1)
+            self.A = self.A.repeat(self.k, 1)
+        # print(self.A)
+        # print(self.B)
 
     def _zero_counts(self):
         """Set the expected counts to 0.  
@@ -289,34 +304,52 @@ class HiddenMarkovModel:
 
     @typechecked
     def forward_pass(self, isent: IntegerizedSentence) -> TorchScalar:
-        """Run the forward algorithm from the handout on a tagged, untagged, 
-        or partially tagged sentence. Return log Z (the log of the forward
-        probability) as a TorchScalar. If the sentence is not fully tagged, the 
-        forward probability will marginalize over all possible tags.  
+        """Run the forward algorithm on a tagged, untagged, or partially tagged sentence.
+        Return log Z (the log of the forward probability) as a TorchScalar. If the sentence 
+        is not fully tagged, the forward probability will marginalize over all possible tags.  
         
-        As a side effect, remember the alpha probabilities and log_Z
-        (store some representation of them into attributes of self)
-        so that they can subsequently be used by the backward pass."""
+        This method stores the alpha probabilities and log_Z into self for subsequent use 
+        in the backward pass."""
 
         # Initialize alpha with -inf for all tags, except BOS_TAG
         n = len(isent) - 2  # length of sentence without BOS and EOS
         alpha = torch.full((len(isent), self.k), -float('inf'))
         alpha[0][self.bos_t] = 0  # BOS_TAG starts with log-prob of 0
 
-        # Forward algorithm for each position in the sentence
+        # Forward pass through each position in the sentence except the EOS step
         for j in range(1, n + 1):
             word = isent[j][0]
-            alpha[j] = torch.logsumexp(
-                alpha[j - 1].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0),
-                dim=0)
+            prev_tag = isent[j - 1][1]
+            current_tag = isent[j][1]
 
-        # Final step for EOS tag
-        alpha[n + 1][self.eos_t] = torch.logsumexp(
-            alpha[n] + torch.log(self.A[:, self.eos_t]), dim=0
-        )
-        # Return log Z, the log-probability of observing the given sentence
+            # Compute alpha[j] based on tagging status of j and j-1
+            if current_tag is None:
+                # j is not tagged, sum over all possible tags for j
+                alpha[j] = torch.logsumexp(
+                    alpha[j - 1].unsqueeze(1) + torch.log(self.A) + torch.log(self.B[:, word]).unsqueeze(0), dim=0
+                )
+            elif prev_tag is None:
+                # j is tagged, but j-1 is not tagged
+                alpha[j][current_tag] = torch.logsumexp(
+                    alpha[j - 1] + torch.log(self.A[:, current_tag]) + torch.log(self.B[current_tag, word]), dim=0
+                )
+            else:
+                # Both j and j-1 are tagged
+                alpha[j][current_tag] = (
+                    alpha[j - 1][prev_tag]
+                    + torch.log(self.A[prev_tag, current_tag])
+                    + torch.log(self.B[current_tag, word])
+                )
+
+        # Final step for EOS tag (j = n + 1), omit B matrix
+        if isent[n][1] is None:  # n is not tagged
+            alpha[n + 1][self.eos_t] = torch.logsumexp(alpha[n] + torch.log(self.A[:, self.eos_t]), dim=0)
+        else:  # n is tagged
+            alpha[n + 1][self.eos_t] = alpha[n][isent[n][1]] + torch.log(self.A[isent[n][1], self.eos_t])
+
+        # Calculate log Z, the log-probability of observing the given sentence
         log_Z = alpha[n + 1][self.eos_t]
-        self.alpha = alpha  # Save alpha for use in backward_pass
+        self.alpha = alpha  # Save alpha for backward pass
         self.log_Z = log_Z  # Save log Z
         return log_Z
 
@@ -334,23 +367,73 @@ class HiddenMarkovModel:
         # Pre-allocate beta just as we pre-allocated alpha.
         beta = [torch.empty(self.k) for _ in isent]
         beta[-1] = torch.log(self.eye[self.eos_t])  # vector that is one-hot at EOS_TAG
-        # beta[-1][self.eos_t] = 0  # EOS_TAG ends with log-prob of 0
-        # print(beta[-1].shape)
         n = len(isent) - 2
         for j in range(n+1, 0, -1):
-            word = isent[j][0]
-            # beta[j-1] = torch.logsumexp(self.A + self.B[:,word] + beta[j] + self.alpha[j-1].unsqueeze(1), dim=0)
-            for t in range(self.k):
-                try:
-                    beta[j-1][t] = torch.logsumexp(torch.log(self.A[t,:]) + torch.log(self.B[:,isent[j][0]]) + beta[j], dim=0)
-                except IndexError:
-                    beta[j-1][t] = torch.logsumexp(torch.log(self.A[t,:]) + beta[j], dim=0)
-            # print(torch.exp(beta[j-1]))
-        for s in range(self.k): # tag of j
-            for j in range(1, n+1):
-                self.B_counts[s, isent[j][0]] += torch.exp(self.alpha[j][s] + beta[j][s] - self.log_Z) * mult
-                for t in range(self.k): # tag of j-1
-                    self.A_counts[t, s] += torch.exp(self.alpha[j-1][t] + torch.log(self.A[t,s]) + torch.log(self.B[s,isent[j][0]]) + beta[j][s] - self.log_Z) * mult
+            # tag1, tag2 = isent[j-1][1], isent[j][1]
+            # if tag1 is None and tag2 is None:
+            #     for t in range(self.k):
+            #         beta[j-1][t] = torch.logsumexp(torch.log(self.A[t, :]) + beta[j], dim=0)
+            #         if j != n+1:
+            #             beta[j-1][t] = torch.logsumexp(beta[j-1][t] + torch.log(self.B[t, isent[j][0]]), dim=0)
+            # elif tag1 is None:
+            #     for t in range(self.k):
+            #         beta[j-1][t] = torch.logsumexp(torch.log(self.A[t, tag2]) + beta[j][tag2], dim=0)
+            #         if j != n+1:
+            #             beta[j-1][t] = torch.logsumexp(beta[j-1][t] + torch.log(self.B[tag2, isent[j][0]]), dim=0)
+            # elif tag2 is None:
+            #     beta[j-1][tag1] = torch.logsumexp(torch.log(self.A[tag1, :]) + beta[j], dim=0)
+            #     if j != n+1:
+            #         beta[j-1][tag1] = torch.logsumexp(beta[j-1][tag1] + torch.log(self.B[tag1, isent[j][0]]), dim=0)
+            # else:
+            #     beta[j-1][tag1] = torch.log(self.A[tag1, tag2]) + beta[j][tag2]
+            #     if j != n+1:
+            #         beta[j-1][tag1] = beta[j-1][tag1] + torch.log(self.B[tag2, isent[j][0]])
+            if j != n+1:
+                tag1, tag2 = isent[j-1][1], isent[j][1]
+                if tag1 is None and tag2 is None:
+                    for t in range(self.k):
+                        beta[j-1][t] = torch.logsumexp(torch.log(self.A[t, :]) + torch.log(self.B[:, isent[j][0]]) + beta[j], dim=0)
+                elif tag1 is None:
+                    for t in range(self.k):
+                        beta[j-1][t] = torch.log(self.A[t, tag2]) + torch.log(self.B[tag2, isent[j][0]]) + beta[j][tag2]
+                elif tag2 is None:
+                    beta[j-1][tag1] = torch.logsumexp(torch.log(self.A[tag1, :]) + torch.log(self.B[:, isent[j][0]]) + beta[j], dim=0)
+                else:
+                    beta[j-1][tag1] = torch.log(self.A[tag1, tag2]) + torch.log(self.B[tag2, isent[j][0]]) + beta[j][tag2]
+            else:
+                tag1, tag2 = isent[j-1][1], isent[j][1]
+                if tag1 is None and tag2 is None:
+                    for t in range(self.k):
+                            beta[j-1][t] = torch.logsumexp(torch.log(self.A[t, :]) + beta[j], dim=0)
+                elif tag1 is None:
+                    for t in range(self.k):
+                        beta[j-1][t] = torch.log(self.A[t, tag2]) + beta[j][tag2]
+                elif tag2 is None:
+                    beta[j-1][tag1] = torch.logsumexp(torch.log(self.A[tag1, :]) + beta[j], dim=0)
+                else:
+                    beta[j-1][tag1] = torch.log(self.A[tag1, tag2]) + beta[j][tag2]
+            # print("beta", j-1, torch.exp(beta[j-1])) #TODO:
+            # if max(beta[j-1]) > 0:
+            #     exit()
+        for j in range(1, n+1):
+            tag1, tag2 = isent[j-1][1], isent[j][1]
+            if tag2 is None:
+                for s in range(self.k): # tag of j
+                    self.B_counts[s, isent[j][0]] += torch.exp(self.alpha[j][s] + beta[j][s] - self.log_Z) * mult
+                    if tag1 is None:
+                        for t in range(self.k): # tag of j-1
+                            self.A_counts[t, s] += torch.exp(self.alpha[j-1][t] + torch.log(self.A[t,s]) + torch.log(self.B[s,isent[j][0]]) + beta[j][s] - self.log_Z) * mult
+                    else:
+                        self.A_counts[tag1, s] = torch.exp(self.alpha[j-1][tag1] + torch.log(self.A[tag1, s]) + torch.log(self.B[s,isent[j][0]]) + beta[j][s] - self.log_Z) * mult
+            else:
+                self.B_counts[tag2, isent[j][0]] += torch.exp(self.alpha[j][tag2] + beta[j][tag2] - self.log_Z) * mult
+                if tag1 is None:
+                    for t in range(self.k):
+                        self.A_counts[t, tag2] += torch.exp(self.alpha[j-1][t] + torch.log(self.A[t,tag2]) + torch.log(self.B[tag2,isent[j][0]]) + beta[j][tag2] - self.log_Z) * mult
+                else:
+                    self.A_counts[tag1, tag2] += torch.exp(self.alpha[j-1][tag1] + torch.log(self.A[tag1,tag2]) + torch.log(self.B[tag2,isent[j][0]]) + beta[j][tag2] - self.log_Z) * mult
+        # print('B_counts', self.B_counts)
+        # print('A_counts', self.A_counts)
         return beta[0][self.bos_t]
 
     def viterbi_tagging(self, sentence: Sentence, corpus: TaggedCorpus) -> Sentence:
@@ -380,9 +463,9 @@ class HiddenMarkovModel:
         for j in range(1, len(isent)):
             for t in range(self.k):
                 # print(alpha[j-1].shape, self.A[:,t].shape, self.B[t, isent[j][0]].shape)
-                try:
+                if j != n+1:
                     prod = alpha[j-1] + torch.log(self.A[:,t]) + torch.log(self.B[t,isent[j][0]])
-                except IndexError:
+                else:
                     prod = alpha[j-1] + torch.log(self.A[:,t])
                 # print('0', torch.exp(alpha[j-1]), self.A[:,t], self.B[t,isent[j][0]])
                 # print('1', torch.exp(prod))

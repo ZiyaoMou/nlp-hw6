@@ -14,7 +14,7 @@ from pathlib import Path
 import torch
 
 from corpus import TaggedCorpus
-from eval import compare_models, eval_tagging, model_cross_entropy, viterbi_error_rate
+from eval import eval_tagging, model_cross_entropy, viterbi_error_rate
 from hmm import HiddenMarkovModel
 from crf import ConditionalRandomField
 
@@ -51,11 +51,11 @@ log.info(f"Tagset: f{list(entrain.tagset)}")
 # We arbitrarily choose λ=1 for our add-λ smoothing at the M step, but it would
 # be better to search for the best value of this hyperparameter.
 
-# log.info("*** Hidden Markov Model (HMM)")
+log.info("*** Hidden Markov Model (HMM)")
 # hmm = HiddenMarkovModel(entrain.tagset, entrain.vocab)  # randomly initialized parameters  
 # loss_sup = lambda model: model_cross_entropy(model, eval_corpus=ensup)
 # hmm.train(corpus=ensup, loss=loss_sup, λ=1.0,
-#           save_path="ensup_hmm.pkl") 
+#           save_path="en_hmm.pkl") 
 
 # # Now let's throw in the unsupervised training data as well, and continue
 # # training as before, in order to increase the regularized log-likelihood on
@@ -73,17 +73,12 @@ log.info(f"Tagset: f{list(entrain.tagset)}")
 # # continue to improve, and that improvement may generalize to held-out
 # # cross-entropy.  But getting accuracy to increase is harder.)
 
-hmm_raw = HiddenMarkovModel.load("../model/en_hmm_raw.pkl")  # reset to supervised model (in case you're re-executing this bit)
+hmm = HiddenMarkovModel(entrain.tagset, entrain.vocab)  # reset to supervised model (in case you're re-executing this bit)
 loss_dev = lambda model: viterbi_error_rate(model, eval_corpus=endev, 
                                             known_vocab=known_vocab)
+hmm.train(corpus=entrain, loss=loss_dev, λ=1.0,
+          save_path="en_hmm_raw.pkl")
 
-hmm = HiddenMarkovModel.load("../model/en_hmm.pkl")  # reset to supervised model (in case you're re-executing this bit)
-viterbi_error_rate(hmm, eval_corpus=endev, known_vocab=known_vocab)
-
-compare_models(hmm, hmm_raw, endev, known_vocab)
-
-# hmm.train(corpus=entrain, loss=loss_dev, λ=1.0,
-#           save_path="entrain_hmm.pkl")
 # # You can also retry the above workflow where you start with a worse supervised
 # # model (like Merialdo).  Does EM help more in that case?  It's easiest to rerun
 # # exactly the code above, but first make the `ensup` file smaller by copying
@@ -108,8 +103,7 @@ compare_models(hmm, hmm_raw, endev, known_vocab)
 #         xent = -model.logprob(sentence, endev) / len(sentence)  # measured in nats
 #         log.info(f"Cross-entropy: {xent/math.log(2)} nats (= perplexity {math.exp(xent)})\n---")
 
-# look_at_your_data(hmm, endev, len(endev))
-# print(loss_dev)
+# look_at_your_data(hmm, endev, 10)
 
 # # Now let's try supervised training of a CRF (this doesn't use the unsupervised
 # # part of the data, so it is comparable to the supervised pre-training we did
@@ -133,10 +127,10 @@ compare_models(hmm, hmm_raw, endev, known_vocab)
 
 # log.info("*** Conditional Random Field (CRF)\n")
 # crf = ConditionalRandomField(entrain.tagset, entrain.vocab)  # randomly initialized parameters  
-# crf.train(corpus=entrain, loss=loss_dev, reg=1.0, lr=0.05, minibatch_size=10,
-#           save_path="en_crf_raw.pkl")
+# crf.train(corpus=ensup, loss=loss_dev, reg=1.0, lr=0.05, minibatch_size=10,
+#           save_path="ensup_crf.pkl")
 
-# Let's examine how the CRF does on individual sentences. 
-# (Do you see any error patterns here that would inspire additional CRF features?)
+# # Let's examine how the CRF does on individual sentences. 
+# # (Do you see any error patterns here that would inspire additional CRF features?)
 
 # look_at_your_data(crf, endev, 10)

@@ -114,3 +114,45 @@ def write_tagging(model_or_tagger: Union[HiddenMarkovModel, Callable[[Sentence],
         for gold in tqdm(eval_corpus, total=len(eval_corpus)):
             predicted = tagger(gold.desupervise())
             f.write(str(predicted)+"\n")
+
+def compare_models(
+        model1: HiddenMarkovModel,
+        model2: HiddenMarkovModel,
+        eval_corpus: TaggedCorpus,
+        known_vocab: Optional[Integerizer[Word]] = None) -> None:
+    """Compare two models on a development corpus and log differences where
+    the second model makes corrections that the first model missed."""
+
+    counts_fixed = 0
+    counts_total = 0
+    corrections = []
+
+    for sentence in tqdm(eval_corpus, total=len(eval_corpus)):
+        predicted1 = model1.viterbi_tagging(sentence.desupervise(), eval_corpus)
+        predicted2 = model2.viterbi_tagging(sentence.desupervise(), eval_corpus)
+
+        for idx, ((word, tag1), (word, tag2), (gold_word, gold_tag)) in enumerate(zip(predicted1, predicted2, sentence)):
+            if word != gold_word:
+                continue  # Skip OOV cases and BOS/EOS
+
+            if tag2 == gold_tag and tag1 != gold_tag:
+                counts_fixed += 1
+                corrections.append({
+                    'word': word,
+                    'position': idx,
+                    'gold_tag': gold_tag,
+                    'tag_model1': tag1,
+                    'tag_model2': tag2,
+                    'context': sentence[max(0, idx - 2):idx + 3]
+                })
+
+            counts_total += 1
+
+    # Log results
+    log.info(f"Total corrections made by model2: {counts_fixed}/{counts_total}")
+    for correction in corrections[0: 10]:
+        log.info(f"Correction: Word '{correction['word']}' at position {correction['position']}")
+        log.info(f"   Gold Tag: {correction['gold_tag']}, Model1 Tag: {correction['tag_model1']}, Model2 Tag: {correction['tag_model2']}")
+        log.info(f"   Context: {[w for w, t in correction['context']]}")
+
+    return counts_fixed / counts_total  # percentage of corrected errors
