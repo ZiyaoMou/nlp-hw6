@@ -105,6 +105,14 @@ def parse_args() -> argparse.Namespace:
         help="model should use extra improvements"
     )
 
+    modelgroup.add_argument(
+        "-p",
+        "--post",
+        action="store_true",
+        default=False,
+        help="model should use extra improvements"
+    )
+
     # for verbosity of logging
     parser.set_defaults(logging_level=logging.INFO)
     verbosity = parser.add_mutually_exclusive_group()
@@ -276,7 +284,7 @@ def main() -> None:
                      
     # Evaluate on dev data
     loss(model)     # evaluate the loss, printing the evaluation using the logger
-    write_tagging(model, eval_corpus, Path(args.output_file))
+    write_tagging(model, eval_corpus, Path(args.output_file), loss = args.post)
     logging.info(f"Wrote tagging to {args.output_file}")
     
 if __name__ == "__main__":

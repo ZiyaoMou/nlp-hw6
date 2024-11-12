@@ -55,7 +55,7 @@ log.info(icsup)          # print the TaggedCorpus python object we constructed f
 
 # # Try it out on the raw data from the spreadsheet, available in `icraw``.
 # log.info("*** Viterbi results on icraw with hard coded parameters")
-# icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
+icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
 # write_tagging(hmm, icraw, Path("icraw_hmm.output"))  # calls hmm.viterbi_tagging on each sentence
 # os.system("cat icraw_hmm.output")   # print the file we just created, and remove it
 
@@ -71,40 +71,43 @@ icdev = TaggedCorpus(Path("icdev"), tagset=icsup.tagset, vocab=icsup.vocab)
 # (You could also try creating this new model with `unigram=true`, 
 # which will affect the rest of the notebook.)
 hmm = HiddenMarkovModel(icsup.tagset, icsup.vocab)
-log.info("*** A, B matrices as randomly initialized close to uniform")
-hmm.printAB()
-
-log.info("*** Supervised training on icsup")
-cross_entropy_loss = lambda model: model_cross_entropy(model, icsup)
-hmm.train(corpus=icsup, loss=cross_entropy_loss, tolerance=0.0001)
-# log.info("*** A, B matrices after training on icsup (should "
-#          "match initial params on spreadsheet [transposed])")
+# log.info("*** A, B matrices as randomly initialized close to uniform")
 # hmm.printAB()
+
+# log.info("*** Supervised training on icsup")
 from eval import viterbi_error_rate
-viterbi_error_rate(hmm, icdev, show_cross_entropy=False)
+# # cross_entropy_loss = lambda model: model_cross_entropy(model, icsup)
+loss_dev = lambda model: viterbi_error_rate(model, eval_corpus=icdev, 
+                                             known_vocab=icsup.vocab, show_cross_entropy=True)
+# hmm.train(corpus=icsup, loss=loss_dev, tolerance=0.0001)
+# # log.info("*** A, B matrices after training on icsup (should "
+# #          "match initial params on spreadsheet [transposed])")
+# # hmm.printAB()
 
-# Now that we've reached the spreadsheet's starting guess, let's again tag
-# the spreadsheet "sentence" (that is, the sequence of ice creams) using the
-# Viterbi algorithm.
-log.info("*** Viterbi results on icraw")
-icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
-write_tagging(hmm, icraw, Path("icraw_hmm.output"))  # calls hmm.viterbi_tagging on each sentence
-os.system("cat icraw_hmm.output")   # print the file we just created, and remove it
+# # viterbi_error_rate(hmm, icdev, show_cross_entropy=False)
 
-# Next let's use the forward algorithm to see what the model thinks about 
-# the probability of the spreadsheet "sentence."
-log.info("*** Forward algorithm on icraw (should approximately match iteration 0 "
-             "on spreadsheet)")
-for sentence in icraw:
-    prob = math.exp(hmm.logprob(sentence, icraw))
-    log.info(f"{prob} = p({sentence})")
+# # Now that we've reached the spreadsheet's starting guess, let's again tag
+# # the spreadsheet "sentence" (that is, the sequence of ice creams) using the
+# # Viterbi algorithm.
+# log.info("*** Viterbi results on icraw")
+# icraw = TaggedCorpus(Path("icraw"), tagset=icsup.tagset, vocab=icsup.vocab)
+# write_tagging(hmm, icraw, Path("icraw_hmm.output"))  # calls hmm.viterbi_tagging on each sentence
+# os.system("cat icraw_hmm.output")   # print the file we just created, and remove it
 
-# Finally, let's reestimate on the icraw data, as the spreadsheet does.
-# We'll evaluate as we go along on the *training* perplexity, and stop
-# when that has more or less converged.
-log.info("*** Reestimating on icraw (perplexity should improve on every iteration)")
-negative_log_likelihood = lambda model: model_cross_entropy(model, icraw)  # evaluate on icraw itself
-hmm.train(corpus=icraw, loss=negative_log_likelihood, tolerance=0.0001)
+# # Next let's use the forward algorithm to see what the model thinks about 
+# # the probability of the spreadsheet "sentence."
+# log.info("*** Forward algorithm on icraw (should approximately match iteration 0 "
+#              "on spreadsheet)")
+# for sentence in icraw:
+#     prob = math.exp(hmm.logprob(sentence, icraw))
+#     log.info(f"{prob} = p({sentence})")
+
+# # Finally, let's reestimate on the icraw data, as the spreadsheet does.
+# # We'll evaluate as we go along on the *training* perplexity, and stop
+# # when that has more or less converged.
+# log.info("*** Reestimating on icraw (perplexity should improve on every iteration)")
+negative_log_likelihood = lambda model: model_cross_entropy(model, icsup)  # evaluate on icraw itself
+hmm.train(corpus=icsup, loss=loss_dev, tolerance=0.0001)
 
 log.info("*** A, B matrices after reestimation on icraw"
          "should match final params on spreadsheet [transposed])")

@@ -27,7 +27,7 @@ logging.basicConfig(format="%(levelname)s : %(message)s", level=logging.INFO)  #
 # Switch working directory to the directory where the data live.  You may need to edit this line.
 os.chdir("../data")
 
-entrain = TaggedCorpus(Path("ensup"), Path("enraw"))                               # all training
+entrain = TaggedCorpus(Path("ensup"), Path("ensup"), Path("enraw"))                               # all training
 ensup =   TaggedCorpus(Path("ensup"), tagset=entrain.tagset, vocab=entrain.vocab)  # supervised training
 endev =   TaggedCorpus(Path("endev"), tagset=entrain.tagset, vocab=entrain.vocab)  # evaluation
 print(f"{len(entrain)=}  {len(ensup)=}  {len(endev)=}")
@@ -75,9 +75,9 @@ log.info("*** Hidden Markov Model (HMM)")
 
 hmm = HiddenMarkovModel(entrain.tagset, entrain.vocab)  # reset to supervised model (in case you're re-executing this bit)
 loss_dev = lambda model: viterbi_error_rate(model, eval_corpus=endev, 
-                                            known_vocab=known_vocab)
+                                            known_vocab=known_vocab, show_cross_entropy=True)
 hmm.train(corpus=entrain, loss=loss_dev, λ=1.0,
-          save_path="en_hmm_raw.pkl")
+          save_path="en_hmm.pkl")
 
 # # You can also retry the above workflow where you start with a worse supervised
 # # model (like Merialdo).  Does EM help more in that case?  It's easiest to rerun

@@ -22,6 +22,11 @@ def viterbi_tagger(model: HiddenMarkovModel, eval_corpus: TaggedCorpus) -> Calla
         return model.viterbi_tagging(input, eval_corpus)
     return tagger
 
+def posterior_tagger(model: HiddenMarkovModel, eval_corpus: TaggedCorpus) -> Callable[[Sentence], Sentence]:
+    def tagger(input:Sentence) -> Sentence:
+        return model.posterior_decoding(input, eval_corpus)
+    return tagger
+
 def model_cross_entropy(model: HiddenMarkovModel,
                         eval_corpus: TaggedCorpus) -> float:
     """Return cross-entropy per token of the model on the given evaluation corpus.
@@ -105,9 +110,13 @@ def eval_tagging(predicted: Sentence,
 
 def write_tagging(model_or_tagger: Union[HiddenMarkovModel, Callable[[Sentence], Sentence]],
                         eval_corpus: TaggedCorpus,
-                        output_path: Path) -> None:
+                        output_path: Path,
+                        loss: bool = False
+                        ) -> None:
     if isinstance(model_or_tagger, HiddenMarkovModel):
         tagger = viterbi_tagger(model_or_tagger, eval_corpus)
+    elif loss:
+        tagger = posterior_tagger(model_or_tagger, eval_corpus)
     else:
         tagger = model_or_tagger
     with open(output_path, 'w') as f:

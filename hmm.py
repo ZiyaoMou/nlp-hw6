@@ -481,6 +481,22 @@ class HiddenMarkovModel:
         # (using self.tagset to deintegerize the chosen tags).
         return Sentence([(word, self.tagset[tags[j]]) for j, (word, tag) in enumerate(sentence)])
 
+    def posterior_decoding(self, sentence: Sentence, corpus: TaggedCorpus) -> Sentence:
+        isent = self._integerize_sentence(sentence, corpus)
+        n = len(isent) - 2
+        tags = [0] * (n + 2)
+
+        # Perform forward and backward passes to obtain posterior probabilities
+        self.forward_pass(isent)
+        self.backward_pass(isent)
+        
+        # Posterior decoding for each tag independently
+        for j in range(1, n + 1):
+            posterior_probs = torch.exp(self.alpha[j] + self.beta[j] - self.log_Z)
+            tags[j] = posterior_probs.argmax().item()
+
+        return Sentence([(word, self.tagset[tags[j]]) for j, (word, tag) in enumerate(sentence)])
+
     def save(self, model_path: Path) -> None:
         logger.info(f"Saving model to {model_path}")
         torch.save(self, model_path, pickle_protocol=pickle.HIGHEST_PROTOCOL)
