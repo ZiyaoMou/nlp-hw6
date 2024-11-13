@@ -434,6 +434,7 @@ class HiddenMarkovModel:
                     self.A_counts[tag1, tag2] += torch.exp(self.alpha[j-1][tag1] + torch.log(self.A[tag1,tag2]) + torch.log(self.B[tag2,isent[j][0]]) + beta[j][tag2] - self.log_Z) * mult
         # print('B_counts', self.B_counts)
         # print('A_counts', self.A_counts)
+        self.beta = beta  # Save beta for posterior decoding
         return beta[0][self.bos_t]
 
     def viterbi_tagging(self, sentence: Sentence, corpus: TaggedCorpus) -> Sentence:

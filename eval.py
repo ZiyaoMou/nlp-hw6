@@ -44,13 +44,19 @@ def model_cross_entropy(model: HiddenMarkovModel,
 def viterbi_error_rate(model: HiddenMarkovModel,
                      eval_corpus: TaggedCorpus,
                      known_vocab: Optional[Integerizer[Word]] = None,
-                     show_cross_entropy = True) -> float:
+                     show_cross_entropy = True,
+                     loss = False
+                     ) -> float:
     """Return the error rate of Viterbi tagging with the given model on the given 
     evaluation corpus, after logging cross-entropy (optionally) and a breakdown 
     of accuracy."""
 
     if show_cross_entropy:
         model_cross_entropy(model, eval_corpus)  # call this for its side effect (logging)
+    if loss:
+        return tagger_error_rate(posterior_tagger(model, eval_corpus),
+                                 eval_corpus,
+                                 known_vocab=known_vocab)
     return tagger_error_rate(viterbi_tagger(model, eval_corpus),
                              eval_corpus,
                              known_vocab=known_vocab)

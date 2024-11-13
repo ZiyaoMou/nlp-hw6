@@ -256,7 +256,7 @@ def main() -> None:
     if args.loss == 'cross_entropy': 
         loss = lambda x: model_cross_entropy(x, eval_corpus)
     elif args.loss == 'viterbi_error': 
-        loss = lambda x: viterbi_error_rate(x, eval_corpus, show_cross_entropy=False)
+        loss = lambda x: viterbi_error_rate(x, eval_corpus, show_cross_entropy=False, loss=args.post)
 
     # Train on the training corpus, if non-empty.    
     if train_corpus:
